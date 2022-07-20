@@ -1,4 +1,4 @@
-package usercases
+package usecase
 
 import (
 	"time"

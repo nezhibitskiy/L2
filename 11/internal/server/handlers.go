@@ -8,40 +8,34 @@ import (
 
 	log "11/internal/logging"
 	event "11/internal/model"
-	"11/internal/usercases"
+	"11/internal/usecase"
 	"11/internal/validation"
 )
 
-type Implementation struct {
-	repo   usercases.Repository
+type Handler struct {
+	repo   usecase.Repository
 	logger log.LoggerEx
 }
 
-func New(repo usercases.Repository, logger log.LoggerEx) Implementation {
-	return Implementation{repo: repo, logger: logger}
+func New(repo usecase.Repository, logger log.LoggerEx) Handler {
+	return Handler{repo: repo, logger: logger}
 }
 
-func NewServ(repo usercases.Repository, logger log.LoggerEx) *http.ServeMux {
+func Register(repo usecase.Repository, logger log.LoggerEx) *http.ServeMux {
+	h := New(repo, logger)
+
 	mux := http.NewServeMux()
-
-	impl := New(repo, logger)
-
-	mux.HandleFunc("/create", impl.Middleware(impl.Create, logger))
-
-	mux.HandleFunc("/delete", impl.Middleware(impl.Delete, logger))
-
-	mux.HandleFunc("/update", impl.Middleware(impl.Update, logger))
-
-	mux.HandleFunc("/today", impl.Middleware(impl.Today, logger))
-
-	mux.HandleFunc("/week", impl.Middleware(impl.Week, logger))
-
-	mux.HandleFunc("/month", impl.Middleware(impl.Month, logger))
+	mux.HandleFunc("/create", h.Middleware(h.Create, logger))
+	mux.HandleFunc("/delete", h.Middleware(h.Delete, logger))
+	mux.HandleFunc("/update", h.Middleware(h.Update, logger))
+	mux.HandleFunc("/today", h.Middleware(h.Today, logger))
+	mux.HandleFunc("/week", h.Middleware(h.Week, logger))
+	mux.HandleFunc("/month", h.Middleware(h.Month, logger))
 
 	return mux
 }
 
-func (i *Implementation) Create(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	id, date, err := validation.ParseParams(r)
 	if err != nil {
@@ -55,7 +49,7 @@ func (i *Implementation) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	model, err := i.repo.Create(m.ID, m.Date)
+	model, err := h.repo.Create(m.ID, m.Date)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -75,7 +69,7 @@ func (i *Implementation) Create(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (i *Implementation) Update(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, t, err := validation.ParseParams(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -90,7 +84,7 @@ func (i *Implementation) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	err = i.repo.Update(int64(id), t, newTime)
+	err = h.repo.Update(int64(id), t, newTime)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -101,13 +95,13 @@ func (i *Implementation) Update(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (i *Implementation) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, time, err := validation.ParseParams(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	err = i.repo.Delete(int64(id), time)
+	err = h.repo.Delete(int64(id), time)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -118,7 +112,7 @@ func (i *Implementation) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (i *Implementation) Today(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Today(w http.ResponseWriter, r *http.Request) {
 
 	id, _, err := validation.ParseParams(r)
 	if err != nil {
@@ -126,7 +120,7 @@ func (i *Implementation) Today(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := i.repo.Today(int64(id))
+	res, err := h.repo.Today(int64(id))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -138,7 +132,7 @@ func (i *Implementation) Today(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (i *Implementation) Week(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Week(w http.ResponseWriter, r *http.Request) {
 
 	id, _, err := validation.ParseParams(r)
 	if err != nil {
@@ -146,7 +140,7 @@ func (i *Implementation) Week(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := i.repo.Week(int64(id))
+	res, err := h.repo.Week(int64(id))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -158,7 +152,7 @@ func (i *Implementation) Week(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (i *Implementation) Month(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Month(w http.ResponseWriter, r *http.Request) {
 
 	id, _, err := validation.ParseParams(r)
 	if err != nil {
@@ -166,7 +160,7 @@ func (i *Implementation) Month(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := i.repo.Month(int64(id))
+	res, err := h.repo.Month(int64(id))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -178,12 +172,12 @@ func (i *Implementation) Month(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (i *Implementation) Middleware(next http.HandlerFunc, l log.LoggerEx) http.HandlerFunc {
+func (h *Handler) Middleware(next http.HandlerFunc, l log.LoggerEx) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		id, err := strconv.Atoi(r.URL.Query()["id"][0])
 		if err != nil {
-			i.logger.WriteInfo(err.Error())
+			h.logger.WriteInfo(err.Error())
 			http.Error(w, "No id in request", http.StatusBadRequest)
 		}
 
@@ -194,10 +188,10 @@ func (i *Implementation) Middleware(next http.HandlerFunc, l log.LoggerEx) http.
 		reqInfo := fmt.Sprintf("Method: %s, id: %s", r.Method, r.URL.Query()["id"][0])
 		err = l.WriteInfo(reqInfo)
 		if err != nil {
-			i.logger.WriteErr(err)
+			h.logger.WriteErr(err)
 		}
 
-		i.repo.Check(int64(id))
+		h.repo.Check(int64(id))
 
 		next(w, r)
 	}

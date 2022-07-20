@@ -5,9 +5,8 @@ import (
 	"net"
 	"net/http"
 
-	cfg "11/internal/config"
+	"11/internal"
 	"11/internal/logging"
-	"11/internal/usercases"
 )
 
 const (
@@ -16,12 +15,12 @@ const (
 
 type Application struct {
 	mux    *http.ServeMux
-	hash   usercases.Repository
-	config *cfg.Cfg
+	hash   usecase.Repository
+	config *internal.Config
 	logger logging.LoggerEx
 }
 
-func NewApp(config *cfg.Cfg, repo usercases.Repository) *Application {
+func NewApp(config *internal.Config, repo usecase.Repository) *Application {
 	return &Application{
 		hash:   repo,
 		config: config,
@@ -37,7 +36,7 @@ func (a *Application) Start() error {
 
 	a.logger, err = logging.NewLogger(loggingPath)
 
-	a.mux = NewServ(a.hash, a.logger)
+	a.mux = Register(a.hash, a.logger)
 
 	err = a.logger.WriteInfo(fmt.Sprintf("Starting server on %s:%s", a.config.Ip, a.config.Port))
 	if err != nil {
